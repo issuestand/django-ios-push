@@ -16,6 +16,7 @@ import datetime
 import struct
 import ssl
 import binascii
+import math
 
 # Handle Python 2.5 / 2.6 seamlessly
 try:
@@ -38,6 +39,7 @@ class Device(models.Model):
     is_test_device = models.BooleanField(default=False)
     notes = models.CharField(blank=True, max_length=100)
     failed = models.BooleanField(default=False)
+    platform = models.CharField(max_length=100, null=True, blank=True)
     
     def _getApnHostName(self):
         """
@@ -143,7 +145,7 @@ def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content
     The caller must ensure that all phones are the same sandbox level
     otherwise it'll end up sending messages to the wrong service.
     """
-    s = socket()
+    
     if sandbox:
         host_name = settings.APN_SANDBOX_HOST
     else:
@@ -155,16 +157,18 @@ def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content
         else:
             custom_cert = settings.APN_LIVE_PUSH_CERT
             
-    c = ssl.wrap_socket(s,
-                        ssl_version=ssl.PROTOCOL_SSLv3,
-                        certfile=custom_cert)
-    c.connect((host_name, 2195))
-    
-    for device in devices_list:
-        device.send_message(alert, badge, sound, content_available, custom_params,
-                            action_loc_key, loc_key, loc_args, c)
-    
-    c.close()
+    page = 75
+    for i in range(0, int(math.floor(devices_list.count() / page))):        
+        s = socket()
+        c = ssl.wrap_socket(s,
+                            ssl_version=ssl.PROTOCOL_SSLv3,
+                            certfile=custom_cert)
+        c.connect((host_name, 2195))
+        
+        for device in devices_list[page*i:page*(i+1)]:            
+            device.send_message(alert, badge=badge, sound=sound, content_available=content_available, custom_params=custom_params,
+                                action_loc_key=action_loc_key, loc_key=loc_key, loc_args=loc_args, passed_socket=c)
+        c.close()
     
 def doFeedbackLoop(sandbox = False):
     """
