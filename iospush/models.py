@@ -145,30 +145,37 @@ def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content
     The caller must ensure that all phones are the same sandbox level
     otherwise it'll end up sending messages to the wrong service.
     """
-    
+
     if sandbox:
         host_name = settings.APN_SANDBOX_HOST
     else:
         host_name = settings.APN_LIVE_HOST
-        
+
     if custom_cert is None:
         if sandbox:
             custom_cert = settings.APN_SANDBOX_PUSH_CERT
         else:
             custom_cert = settings.APN_LIVE_PUSH_CERT
-            
-    page = 75
-    for i in range(0, int(math.floor(devices_list.count() / page))):        
+    
+    chunkSize = 75
+    currentChunk = 0
+
+    while (currentChunk <= math.ceil(devices_list.count() / chunkSize)):
         s = socket()
         c = ssl.wrap_socket(s,
                             ssl_version=ssl.PROTOCOL_SSLv3,
                             certfile=custom_cert)
         c.connect((host_name, 2195))
         
-        for device in devices_list[page*i:page*(i+1)]:            
+        rangeMin = chunkSize * currentChunk
+        rangeMax = rangeMin + chunkSize
+
+        for device in devices_list[rangeMin:rangeMax]:
             device.send_message(alert, badge=badge, sound=sound, content_available=content_available, custom_params=custom_params,
                                 action_loc_key=action_loc_key, loc_key=loc_key, loc_args=loc_args, passed_socket=c)
+
         c.close()
+        currentChunk += 1
     
 def doFeedbackLoop(sandbox = False):
     """
