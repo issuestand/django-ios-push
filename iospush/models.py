@@ -28,18 +28,21 @@ class Device(models.Model):
     """
     Represents an iPhone used to push
     
-    udid - the iPhone Unique Push Identifier (64 chars of hex)
+    device_token - the Device's token (64 chars of hex)
     last_notified_at - when was a notification last sent to the phone
-    test_phone - is this a phone that should be included in test runs
+    is_test_device - is this a phone that should be included in test runs
     notes - just a small notes field so that we can put in things like "Lee's iPhone"
     failed_phone - Have we had feedback about this phone? If so, flag it.
     """
-    udid = models.CharField(blank=False, max_length=64)
+    device_token = models.CharField(blank=False, max_length=64)
     last_notified_at = models.DateTimeField(blank=True, default=datetime.datetime.now)
     is_test_device = models.BooleanField(default=False)
     notes = models.CharField(blank=True, max_length=100)
     failed = models.BooleanField(default=False)
     platform = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        unique_together = (('device_token', 'is_test_device'),)
     
     def _getApnHostName(self):
         """
@@ -115,7 +118,7 @@ class Device(models.Model):
 
         fmt = "!cH32sH%ds" % len(s_payload)
         command = '\x00'
-        msg = struct.pack(fmt, command, 32, binascii.unhexlify(self.udid), len(s_payload), s_payload)
+        msg = struct.pack(fmt, command, 32, binascii.unhexlify(self.device_token), len(s_payload), s_payload)
         
         if passed_socket:
             passed_socket.write(msg)
@@ -133,7 +136,7 @@ class Device(models.Model):
         return True
 
     def __unicode__(self):
-        return u"Device %s" % self.udid
+        return u"Device %s" % self.device_token
         
 def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content_available=False,
                             custom_params={}, action_loc_key=None, loc_key=None,
@@ -145,30 +148,37 @@ def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content
     The caller must ensure that all phones are the same sandbox level
     otherwise it'll end up sending messages to the wrong service.
     """
-    
+
     if sandbox:
         host_name = settings.APN_SANDBOX_HOST
     else:
         host_name = settings.APN_LIVE_HOST
-        
+
     if custom_cert is None:
         if sandbox:
             custom_cert = settings.APN_SANDBOX_PUSH_CERT
         else:
             custom_cert = settings.APN_LIVE_PUSH_CERT
-            
-    page = 75
-    for i in range(0, int(math.floor(devices_list.count() / page))):        
+    
+    chunkSize = 75
+    currentChunk = 0
+
+    while (currentChunk <= math.ceil(devices_list.count() / chunkSize)):
         s = socket()
         c = ssl.wrap_socket(s,
                             ssl_version=ssl.PROTOCOL_SSLv3,
                             certfile=custom_cert)
         c.connect((host_name, 2195))
         
-        for device in devices_list[page*i:page*(i+1)]:            
+        rangeMin = chunkSize * currentChunk
+        rangeMax = rangeMin + chunkSize
+
+        for device in devices_list[rangeMin:rangeMax]:
             device.send_message(alert, badge=badge, sound=sound, content_available=content_available, custom_params=custom_params,
                                 action_loc_key=action_loc_key, loc_key=loc_key, loc_args=loc_args, passed_socket=c)
+
         c.close()
+        currentChunk += 1
     
 def doFeedbackLoop(sandbox = False):
     """
