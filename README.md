@@ -43,6 +43,8 @@ Try to send some notifications:
     device.send_message(alert='My sound', sound='mysound')
     # Newsstand content availability notification
     device.send_message(alert='New issue', content_available=True)
+    # This notification will expire after Tue, 26 Mar 2013 22:10:54 GMT
+    device.send_message(alert='New issue', expiry=1364335854)
 
 Sending mass notification is also simple:
 	
@@ -52,9 +54,6 @@ In case of need to communicate with different iOS applications, which requires u
 
 	device.send_message(alert='Test', custom_cert=os.path.join(settings.PROJECT_PATH, 'custom_cert.pem'))
 
-Todo
-----
-* Feedback support
 
 LICENCE
 -------

@@ -65,7 +65,8 @@ class Device(models.Model):
     
     def send_message(self, alert, badge=0, sound="chime", content_available=False,
                         custom_params={}, action_loc_key=None, loc_key=None,
-                        loc_args=[], passed_socket=None, custom_cert=None):
+                        loc_args=[], passed_socket=None, custom_cert=None,
+                        identifier=0, expiry=0):
         """
         Send a message to an iPhone using the APN server, returns whether
         it was successful or not.
@@ -80,6 +81,8 @@ class Device(models.Model):
         loc_key - As per APN docs
         loc_args - As per APN docs, make sure you use a list
         passed_socket - Rather than open/close a socket, use an already open one
+        identifier - An arbitrary value that identifies this notification
+        expiry - A fixed UNIX epoch date expressed in seconds (UTC) that identifies when the notification is no longer valid and can be discarded
         
         See http://developer.apple.com/iphone/library/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/ApplePushService/ApplePushService.html
         """
@@ -111,18 +114,14 @@ class Device(models.Model):
         
         # This ensures that we strip any whitespace to fit in the 
         # 256 bytes
-        s_payload = json.dumps(payload, separators=(',',':'))
+        s_payload = json.dumps(payload, separators=(',',':'), ensure_ascii=False).encode('utf8')
         
-        # Check we're not oversized
-        if len(s_payload) > 256:
-            raise OverflowError, 'The JSON generated is too big at %d - *** "%s" ***' % (len(s_payload), s_payload)
-
-        fmt = "!cH32sH%ds" % len(s_payload)
-        command = '\x00'
-        msg = struct.pack(fmt, command, 32, binascii.unhexlify(self.device_token), len(s_payload), s_payload)
+        fmt = "!cIIH32sH%ds" % len(s_payload)
+        command = '\x01'
+        msg = struct.pack(fmt, command, identifier, expiry, 32, binascii.unhexlify(self.device_token), len(s_payload), s_payload)
         
         if passed_socket:
-            passed_socket.write(msg)
+            c = passed_socket
         else:
             s = socket()
             if custom_cert is None:
@@ -131,8 +130,38 @@ class Device(models.Model):
                                 ssl_version=ssl.PROTOCOL_SSLv3,
                                 certfile=custom_cert)
             c.connect((self._getApnHostName(), 2195))
-            c.write(msg)
-            c.close()
+
+        c.write(msg)
+        c.settimeout(1)
+        try:                
+            response = c.read()
+            print len(response)
+            if len(response) > 0:
+                response_command, response_status, response_identifier = struct.unpack("!BBI", response)
+                if response_command == 8:
+                    if response_status == 1:
+                        raise Exception('Processing error')
+                    elif response_status == 2:
+                        raise Exception('Missing device token')
+                    elif response_status == 3:
+                        raise Exception('Missing topic')
+                    elif response_status == 4:
+                        raise Exception('Missing payload')
+                    elif response_status == 5:
+                        raise Exception('Invalid token size')
+                    elif response_status == 6:
+                        raise Exception('Invalid topic size')
+                    elif response_status == 7:
+                        raise Exception('Invalid payload size')
+                    elif response_status == 8:
+                        raise Exception('Invalid token')
+                    else:
+                        raise Exception('None (unknown)')
+        except ssl.SSLError as e:
+            pass
+
+        if not passed_socket:
+            c.close()            
         
         return True
 
@@ -141,7 +170,8 @@ class Device(models.Model):
         
 def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content_available=False,
                             custom_params={}, action_loc_key=None, loc_key=None,
-                            loc_args=[], sandbox=False, custom_cert=None):
+                            loc_args=[], sandbox=False, custom_cert=None,
+                            identifier=0, expiry=0):
     """
     See the syntax for send_message, the only difference is this opens
     one socket to send them all.
@@ -176,7 +206,8 @@ def sendMessageToPhoneGroup(devices_list, alert, badge=0, sound="chime", content
 
         for device in devices_list[rangeMin:rangeMax]:
             device.send_message(alert, badge=badge, sound=sound, content_available=content_available, custom_params=custom_params,
-                                action_loc_key=action_loc_key, loc_key=loc_key, loc_args=loc_args, passed_socket=c)
+                                action_loc_key=action_loc_key, loc_key=loc_key, loc_args=loc_args, passed_socket=c,
+                                identifier=identifier, expiry=expiry)
 
         c.close()
         currentChunk += 1

@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name = "django-ios-push",
-    version = "0.1.1",
+    version = "0.1.2",
     author = "Appsome",
     author_email = "contact@appsome.co",
     description = ("A Django Application for contacting the Apple Push Service"
