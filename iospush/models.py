@@ -9,6 +9,7 @@ May not be used for commercial applications without prior concent.
 
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 from socket import socket
 
@@ -35,7 +36,7 @@ class Device(models.Model):
     failed_phone - Have we had feedback about this phone? If so, flag it.
     """
     device_token = models.CharField(blank=False, max_length=64)
-    last_notified_at = models.DateTimeField(blank=True, default=datetime.datetime.now)
+    last_notified_at = models.DateTimeField(blank=True, default=timezone.now())
     is_test_device = models.BooleanField(default=False)
     notes = models.CharField(blank=True, max_length=100)
     failed = models.BooleanField(default=False)
