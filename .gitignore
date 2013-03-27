@@ -1,3 +1,4 @@
 dist/*
+build/*
 django_ios_push.egg-info
 *.pyc
