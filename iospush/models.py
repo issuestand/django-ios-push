@@ -68,23 +68,48 @@ class Device(models.Model):
                         loc_args=[], passed_socket=None, custom_cert=None,
                         identifier=0, expiry=0):
         """
-        Send a message to an iPhone using the APN server, returns whether
-        it was successful or not.
-        
-        alert - The message you want to send
-        badge - Numeric badge number you wish to show, 0 will clear it
-        sound - chime is shorter than default! Replace with None/"" for no sound
-        content_available - newsstand notification about new content available
-        sandbox - Are you sending to the sandbox or the live server
-        custom_params - A dict of custom params you want to send
-        action_loc_key - As per APN docs
-        loc_key - As per APN docs
-        loc_args - As per APN docs, make sure you use a list
-        passed_socket - Rather than open/close a socket, use an already open one
-        identifier - An arbitrary value that identifies this notification
-        expiry - A fixed UNIX epoch date expressed in seconds (UTC) that identifies when the notification is no longer valid and can be discarded
-        
-        See http://developer.apple.com/iphone/library/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/ApplePushService/ApplePushService.html
+        Send a message to an iPhone via the APNS protocol.
+
+        Steps within this function include;
+
+            1) Build the Binary Interface Notification packets.
+            2) Transmit packets to APNS server.
+            3) Receive APNS server response.
+            4) Return transmission outcome.
+
+        Further details of the APNS Notification packets can be found on the Apple developer website, at:
+            http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW1
+
+        Args:
+            alert: The message you want to send
+            badge: Numeric badge number you wish to show, 0 will clear it
+            sound: chime is shorter than default! Replace with None/"" for no sound
+            content_available: newsstand notification about new content available
+            sandbox: Are you sending to the sandbox or the live server
+            custom_params: A dict of custom params you want to send
+            action_loc_key: As per APN docs
+            loc_key: As per APN docs
+            loc_args: As per APN docs, make sure you use a list
+            passed_socket: Rather than open/close a socket, use an already open one
+            identifier: An arbitrary value that identifies this notification
+            expiry: A fixed UNIX epoch date expressed in seconds (UTC) that identifies when the notification is no longer valid and can be discarded
+
+        Returns:
+            True if APNS transmission is successful, and an exception if APNS transmission fails.
+
+        Raises:
+            TypeError: if argument, alert, is of type, None.
+            ValueError: if variable, s_payload, is greater than 256 bytes.
+            Exception: if APNS server response code is, 1. ('Processing error')
+            Exception: if APNS server response code is, 2. ('Missing device token')
+            Exception: if APNS server response code is, 3. ('Missing topic')
+            Exception: if APNS server response code is, 4. ('Missing payload')
+            Exception: if APNS server response code is, 5. ('Invalid token size')
+            Exception: if APNS server response code is, 6. ('Invalid topic size')
+            Exception: if APNS server response code is, 7. ('Invalid payload size')
+            Exception: if APNS server response code is, 8. ('Invalid token')
+            Exception: if APNS server response code is anything other than 1 - 8. ('None (unknown)')
+            SSLError: if APNS server does not respond.
         """
         aps_payload = {}
 
