@@ -11,13 +11,13 @@ def read(fname):
 setup(
     name = "django-ios-push",
     version = "0.1.2",
-    author = "Appsome",
-    author_email = "contact@appsome.co",
+    author = "Issue Stand",
+    author_email = "contact@issuestand.com",
     description = ("A Django Application for contacting the Apple Push Service"
                                     " and maintaining a list of iOS devices."),
     license = "Apache License 2.0",
     keywords = "django ios push notification",
-    url = "https://github.com/appsome/django-ios-push",
+    url = "https://github.com/issuestand/django-ios-push",
     packages=['iospush',],
     long_description="N/A",
 )

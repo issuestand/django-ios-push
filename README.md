@@ -58,6 +58,6 @@ In case of need to communicate with different iOS applications, which requires u
 LICENCE
 -------
 
-Copyright (C) 2012 Wojtek Siudzinski <wojtek@appsome.co>, [Appsome](http://appsome.co)
+Copyright (C) 2012-2013 Wojtek Siudzinski <wojtek@issuestand.com>, [Issue Stand](https://issuestand.com)
 
 Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
